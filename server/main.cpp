@@ -1,5 +1,4 @@
 #include <QApplication>
-//#include <QtCore>
 #include <stdlib.h>
 
 #include "MyServer.h"
@@ -11,6 +10,5 @@ int main(int argc, char *argv[])
 
     server.show();
 
-//    qsrand(QTime(0,0,0).secsTo(QTime::currentTime()));
     return server.exec();
 }

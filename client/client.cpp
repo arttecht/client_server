@@ -3,7 +3,7 @@
 #include <QtWidgets>
 #include <QtDebug>
 #include <QAbstractSocket>
-#include <QThread>
+//#include <QThread>
 
 #include "client.h"
 
@@ -42,7 +42,7 @@ Client::Client(QWidget *parent)
     statusLabel = new QLabel(tr("This examples requires that you run the "
                                 "Fortune Server example as well."));
 
-    getFortuneButton = new QPushButton(tr("Get Fortune"));
+    getFortuneButton = new QPushButton(tr("Send File"));
     getFortuneButton->setDefault(true);
     getFortuneButton->setEnabled(true);
 
