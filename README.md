@@ -16,8 +16,11 @@ have GUI window notifications.
 Client application:
 
 To transfer the file you need to select the three fields:
+
 Server name: has IP address for server.
+
 Server Port: the port which opens on server side (has defaul value: 22222).
+
 File name:   filename on the host side which must be transferred.
 
 
@@ -29,7 +32,9 @@ Display the own IP address and Port which must be selected on client side.
 # Build:
 #****************
 The projet has two build folders:
+
 ./build/build-client
+
 ./build/build-server
 
 Make generating the Makefiles with the help of qmake:
