@@ -32,8 +32,12 @@ The projet has two build folders:
 ./build/build-client
 ./build/build-server
 
-Each folder has own Makefile.
+Make generating the Makefiles with the help of qmake:
 
-Go to one of this folder and launch make utility.
+cd ./build/build-client
+qmake /full_path_to_project_folder/client_server/client/client.pro -r -spec linux-g++ CONFIG+=debug CONFIG+=declarative_debug CONFIG+=qml_debug
 make -f Makefile
 
+cd ./build/build-server
+qmake /full_path_to_project_folder/client_server/server/server.pro -r -spec linux-g++ CONFIG+=debug CONFIG+=declarative_debug CONFIG+=qml_debug
+make -f Makefile
