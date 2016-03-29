@@ -17,7 +17,7 @@ Client application:
 
 To transfer the file you need to select the three fields:
 Server name: has IP address for server.
-Server Port: the port whish opens on server side (has defaul value: 22222).
+Server Port: the port which opens on server side (has defaul value: 22222).
 File name:   filename on the host side which must be transferred.
 
 
