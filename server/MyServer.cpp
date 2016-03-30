@@ -6,7 +6,7 @@
 #include <QtAlgorithms>
 
 Server::Server(QWidget *parent, qint32 port)
-:   QDialog(parent), tcp_Port(port), tcpServer(0), networkSession(0)
+:   QDialog(parent), tcp_Port(port), tcpServer(0) , networkSession(0)
 {
     statusLabel = new QLabel;
     quitButton = new QPushButton(tr("Quit"));
@@ -99,74 +99,70 @@ void Server::slotNewConnection()
 {
     QTcpSocket *clientConnection = tcpServer->nextPendingConnection();
 
-    connect(clientConnection, SIGNAL(disconnected()),
-            clientConnection, SLOT(deleteLater()));
-
-    connect(clientConnection, SIGNAL(readyRead()),
-            this,             SLOT(slotReadClient())
-           );
+    connect(clientConnection, SIGNAL(disconnected()), clientConnection, SLOT(deleteLater()));
+    connect(clientConnection, SIGNAL(readyRead()), this, SLOT(slotReadClient()));
 
     sendToClient(clientConnection, "Server Response: Connected");
 }
 
 #define M_DEBUG
+QString Server::takeFileName(QByteArray &data)
+{
+    QString str;
+    for (qint32 i = 1; i < data[0] + 1; ++i)
+    {
+        str.push_back( char(data[i]) );
+    }
+    return str;
+}
+
+
 void Server::slotReadClient()
 {
-    quint32     m_size = 0;
     QTcpSocket* pClientSocket = (QTcpSocket*)sender();
     QDataStream in(pClientSocket);
+    quint32     m_size = 0;
+    bool        cnt = false;
 
-    quint32     cnt = 0;
-    QByteArray  data;
     in.setVersion(QDataStream::Qt_4_2);
 
     for (;;) {
-        if (!m_size) {
+        if (!m_size)
+        {
             if (pClientSocket->bytesAvailable() < sizeof(quint16)) {
                 break;
             }
             in >> m_size;
-            cnt = 0;
+            cnt = false;
         }
 
         if (pClientSocket->bytesAvailable() < m_size) {
             break;
         }
 
-        QByteArray temp;
-        in >> temp;
+        QByteArray data;
+        in >> data;
 
-        if (!cnt) {
-            QString str;
-            qint32 i = 0;
-
-            for (i = 0; i < temp.size(); ++i) {
-                if (temp[i] == ' ') {
-                    ++i; break;
-                }
-                str += temp[i];
-            }
-            m_size = m_size  - sizeof(quint32) - str.size() - 1;
-
-#ifdef M_DEBUG
-            qDebug() << "Fileame: " << str;
-            qDebug() << "m_size: " << m_size;
-            qDebug() << "str_size: " << str.size();
-#endif
-            file.setFileName(str);
-            if (!file.open(QIODevice::WriteOnly)) {
+        if (!cnt)
+        {
+            file.setFileName( takeFileName(data) );
+            if (!file.open(QIODevice::WriteOnly))
+            {
                 qDebug() << "File isn't created!";
                 return;
             }
 
-            for (qint32 j = i; j < temp.size(); ++j)
-                data.push_back(temp[j]);
+            m_size = m_size - sizeof(quint32) - data[0] - 1;
+            file.write( data.right(m_size) );
 
-            file.write(data);
+#ifdef M_DEBUG
+            qDebug() << "Fileame: " << takeFileName(data);
+            qDebug() << "m_size: " << m_size;
+            qDebug() << "str_size: " << quint32(data[0]);
+#endif
         }
-
-        m_size = 0;
-        cnt = 1;
+        m_size  = 0;
+        cnt     = true;
         sendToClient(pClientSocket, "Server Response: Received");
     }
     file.close();

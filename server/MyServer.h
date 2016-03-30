@@ -24,6 +24,7 @@ private slots:
 
 private:
     void sendToClient(QTcpSocket* pSocket, const QString& str);
+    QString takeFileName(QByteArray &data);
 
     qint32  tcp_Port;
     QLabel *statusLabel;

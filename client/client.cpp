@@ -3,12 +3,11 @@
 #include <QtWidgets>
 #include <QtDebug>
 #include <QAbstractSocket>
-//#include <QThread>
 
 #include "client.h"
 
 Client::Client(QWidget *parent)
-:   QDialog(parent), networkSession(0)
+:   QDialog(parent)
 {
     hostLabel = new QLabel(tr("&Server name:"));
     portLabel = new QLabel(tr("S&erver port:"));
@@ -31,8 +30,8 @@ Client::Client(QWidget *parent)
 
     hostLineEdit = new QLineEdit(ipAddress);
     portLineEdit = new QLineEdit("22222");
-//    fileLineEdit = new QLineEdit("../test_files/aaa.txt");
-    fileLineEdit = new QLineEdit();
+    fileLineEdit = new QLineEdit("vim.txt");
+//    fileLineEdit = new QLineEdit();
     portLineEdit->setValidator(new QIntValidator(1, 65535, this));
 
     hostLabel->setBuddy(hostLineEdit);
@@ -40,7 +39,7 @@ Client::Client(QWidget *parent)
     fileLabel->setBuddy(fileLineEdit);
 
     statusLabel = new QLabel(tr("This examples requires that you run the "
-                                "Fortune Server example as well."));
+                                "File Receiver Server example as well."));
 
     getFortuneButton = new QPushButton(tr("Send File"));
     getFortuneButton->setDefault(true);
@@ -54,23 +53,18 @@ Client::Client(QWidget *parent)
 
     tcpSocket = new QTcpSocket(this);
 
-    connect(hostLineEdit, SIGNAL(textChanged(QString)),
-            this, SLOT(enableGetFortuneButton()));
-    connect(portLineEdit, SIGNAL(textChanged(QString)),
-            this, SLOT(enableGetFortuneButton()));
-    connect(fileLineEdit, SIGNAL(textChanged(QString)),
-            this, SLOT(enableGetFortuneButton()));
+    connect(hostLineEdit, SIGNAL(textChanged(QString)), this, SLOT(enableGetFortuneButton()));
+    connect(portLineEdit, SIGNAL(textChanged(QString)), this, SLOT(enableGetFortuneButton()));
+    connect(fileLineEdit, SIGNAL(textChanged(QString)), this, SLOT(enableGetFortuneButton()));
 
-    connect(getFortuneButton, SIGNAL(clicked()),
-            this, SLOT(requestNewFortune()));
+    connect(getFortuneButton, SIGNAL(clicked()), this, SLOT(requestNewFortune()));
     connect(quitButton, SIGNAL(clicked()), this, SLOT(close()));
 
     connect(tcpSocket, SIGNAL(connected()), this, SLOT(prepareAndSendData()));
-
     connect(tcpSocket, SIGNAL(error(QAbstractSocket::SocketError)),
             this, SLOT(displayError(QAbstractSocket::SocketError)));
 
-    QGridLayout *mainLayout = new QGridLayout;
+    mainLayout = new QGridLayout;
     mainLayout->addWidget(hostLabel, 0, 0);
     mainLayout->addWidget(hostLineEdit, 0, 1);
     mainLayout->addWidget(portLabel, 1, 0);
@@ -81,31 +75,26 @@ Client::Client(QWidget *parent)
     mainLayout->addWidget(buttonBox, 4, 0, 1, 3);
     setLayout(mainLayout);
 
-    setWindowTitle(tr("Fortune Client"));
+    setWindowTitle(tr("File Sender Client"));
     portLineEdit->setFocus();
+}
 
-    QNetworkConfigurationManager manager;
-    if (manager.capabilities() & QNetworkConfigurationManager::NetworkSessionRequired) {
-        // Get saved network configuration
-        QSettings settings(QSettings::UserScope, QLatin1String("Trolltech"));
-        settings.beginGroup(QLatin1String("QtNetwork"));
-        const QString id = settings.value(QLatin1String("DefaultNetworkConfiguration")).toString();
-        settings.endGroup();
+Client::~Client()
+{
+    delete hostLabel;
+    delete portLabel;
+    delete fileLabel;
+    delete hostLineEdit;
+    delete portLineEdit;
+    delete fileLineEdit;
+    delete statusLabel;
 
-        // If the saved network configuration is not currently discovered use the system default
-        QNetworkConfiguration config = manager.configurationFromIdentifier(id);
-        if ((config.state() & QNetworkConfiguration::Discovered) !=
-            QNetworkConfiguration::Discovered) {
-            config = manager.defaultConfiguration();
-        }
+    delete getFortuneButton;
+    delete quitButton;
 
-        networkSession = new QNetworkSession(config, this);
-        connect(networkSession, SIGNAL(opened()), this, SLOT(sessionOpened()));
-
-        getFortuneButton->setEnabled(false);
-        statusLabel->setText(tr("Opening network session."));
-        networkSession->open();
-    }
+    delete buttonBox;
+    delete tcpSocket;
+    delete mainLayout;
 }
 
 void Client::requestNewFortune()
@@ -120,7 +109,32 @@ void Client::requestNewFortune()
     connect(tcpSocket, SIGNAL(readyRead()), this, SLOT(readFortune()));
 }
 
-//#define M_DEBUG
+#define M_DEBUG
+
+void Client::prepareFileName(QString &filename)
+{
+    bool modified = false;
+    QString clear_filename;
+    qint16 i = 0;
+
+    for ( i = filename.length()-1; i >=0; --i ) {
+        if (filename[i] == '\\' || filename[i] == '/') {
+            modified = true;
+            break;
+        }
+    }
+
+    if (modified) {
+        for (quint16 j = i+1; j < filename.length(); ++j ) {
+            clear_filename.push_back(filename[j]);
+        }
+        filename.clear();
+        filename = clear_filename;
+    }
+}
+
+
+
 void Client::prepareAndSendData()
 {
 #ifdef M_DEBUG
@@ -138,32 +152,13 @@ void Client::prepareAndSendData()
     out.setVersion(QDataStream::Qt_4_2);
 
     //Take the clear filename without path
-    QString clear_fname, f_name(fileLineEdit->text());
-    quint16 i = 0, modified = 0;
+    QString f_name(fileLineEdit->text());
 
-    for ( i = f_name.length()-1; i >=0; --i ){
-        if (f_name[i] == '\\' || f_name[i] == '/') {
-            modified = 1;
-            break;
-        }
-    }
-
-    if (modified == 1) {
-        for (quint16 j = i+1; j < f_name.length(); ++j ){
-            clear_fname += f_name[j];
-        }
-        temp.append(clear_fname.toUtf8());
-    }
-    else {
-        temp.append(fileLineEdit->text().toUtf8());
-    }
-
-    temp.append(' ');
+    prepareFileName(f_name);
+    temp.append( char(f_name.length()) + f_name.toUtf8() );
 
     //Put the file content to array
-    quint32 f_len = file.readAll().length();
-    file.seek(0);
-    temp.append(file.readAll().data(), f_len);
+    temp.append(file.readAll().data(), file.size());
 
     out << quint32(0) << temp;
 
@@ -171,7 +166,6 @@ void Client::prepareAndSendData()
     out << quint32(arrBlock.size() - sizeof(quint32));
 
     tcpSocket->write(arrBlock);
-
 #ifdef M_DEBUG
     qDebug() << "arrBlock Size: " << arrBlock.length();
 #endif
@@ -194,11 +188,9 @@ void Client::readFortune()
         return;
 
     in >> currentFortune;
-
 #ifdef M_DEBUG
     qDebug() << "blocksize: " << blockSize << ", " << currentFortune;
 #endif
-
     statusLabel->setText(currentFortune);
     getFortuneButton->setEnabled(true);
 }
@@ -231,30 +223,8 @@ void Client::displayError(QAbstractSocket::SocketError socketError)
 
 void Client::enableGetFortuneButton()
 {
-    getFortuneButton->setEnabled((!networkSession || networkSession->isOpen()) &&
-                                 !hostLineEdit->text().isEmpty() &&
+    getFortuneButton->setEnabled(!hostLineEdit->text().isEmpty() &&
                                  !portLineEdit->text().isEmpty() &&
                                  !fileLineEdit->text().isEmpty());
-
 }
 
-void Client::sessionOpened()
-{
-    // Save the used configuration
-    QNetworkConfiguration config = networkSession->configuration();
-    QString id;
-    if (config.type() == QNetworkConfiguration::UserChoice)
-        id = networkSession->sessionProperty(QLatin1String("UserChoiceConfiguration")).toString();
-    else
-        id = config.identifier();
-
-    QSettings settings(QSettings::UserScope, QLatin1String("Trolltech"));
-    settings.beginGroup(QLatin1String("QtNetwork"));
-    settings.setValue(QLatin1String("DefaultNetworkConfiguration"), id);
-    settings.endGroup();
-
-    statusLabel->setText(tr("This examples requires that you run the "
-                            "Fortune Server example as well."));
-
-    enableGetFortuneButton();
-}

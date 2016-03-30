@@ -1,6 +1,7 @@
 #ifndef CLIENT_H
 #define CLIENT_H
 
+#include <QtWidgets>
 #include <QDialog>
 #include <QTcpSocket>
 
@@ -17,16 +18,18 @@ class Client : public QDialog
 
 public:
     Client(QWidget *parent = 0);
+    ~Client();
 
 private slots:
     void requestNewFortune();
     void readFortune();
     void displayError(QAbstractSocket::SocketError socketError);
     void enableGetFortuneButton();
-    void sessionOpened();
     void prepareAndSendData();
 
 private:
+    void prepareFileName(QString &filename);
+
     QLabel *hostLabel;
     QLabel *portLabel;
     QLabel *fileLabel;
@@ -39,12 +42,11 @@ private:
     QPushButton *getFortuneButton;
     QPushButton *quitButton;
     QDialogButtonBox *buttonBox;
+    QGridLayout *mainLayout;
 
     QTcpSocket *tcpSocket;
     QString currentFortune;
     quint16 blockSize;
-
-    QNetworkSession *networkSession;
 };
 
 #endif
