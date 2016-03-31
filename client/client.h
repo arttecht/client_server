@@ -26,6 +26,7 @@ private slots:
     void displayError(QAbstractSocket::SocketError socketError);
     void enableGetFortuneButton();
     void prepareAndSendData();
+    void openFileDialog();
 
 private:
     void prepareFileName(QString &filename);
@@ -39,6 +40,7 @@ private:
     QLineEdit *fileLineEdit;
 
     QLabel *statusLabel;
+    QPushButton *setFileButton;
     QPushButton *getFortuneButton;
     QPushButton *quitButton;
     QDialogButtonBox *buttonBox;

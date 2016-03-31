@@ -3,6 +3,7 @@
 #include <QtWidgets>
 #include <QtDebug>
 #include <QAbstractSocket>
+#include <QFileDialog>
 
 #include "client.h"
 
@@ -41,6 +42,9 @@ Client::Client(QWidget *parent)
     statusLabel = new QLabel(tr("This examples requires that you run the "
                                 "File Receiver Server example as well."));
 
+
+    setFileButton = new QPushButton(tr("File Insert")); //***
+
     getFortuneButton = new QPushButton(tr("Send File"));
     getFortuneButton->setDefault(true);
     getFortuneButton->setEnabled(true);
@@ -48,6 +52,7 @@ Client::Client(QWidget *parent)
     quitButton = new QPushButton(tr("Quit"));
 
     buttonBox = new QDialogButtonBox;
+    buttonBox->addButton(setFileButton, QDialogButtonBox::ActionRole);
     buttonBox->addButton(getFortuneButton, QDialogButtonBox::ActionRole);
     buttonBox->addButton(quitButton, QDialogButtonBox::RejectRole);
 
@@ -57,6 +62,7 @@ Client::Client(QWidget *parent)
     connect(portLineEdit, SIGNAL(textChanged(QString)), this, SLOT(enableGetFortuneButton()));
     connect(fileLineEdit, SIGNAL(textChanged(QString)), this, SLOT(enableGetFortuneButton()));
 
+    connect(setFileButton, SIGNAL(clicked()), this, SLOT(openFileDialog()));
     connect(getFortuneButton, SIGNAL(clicked()), this, SLOT(requestNewFortune()));
     connect(quitButton, SIGNAL(clicked()), this, SLOT(close()));
 
@@ -95,6 +101,12 @@ Client::~Client()
     delete buttonBox;
     delete tcpSocket;
     delete mainLayout;
+}
+
+void Client::openFileDialog()
+{
+    QString str = QFileDialog::getOpenFileName(this, "Select File", "", "*");
+    fileLineEdit->setText(str);
 }
 
 void Client::requestNewFortune()
@@ -155,6 +167,9 @@ void Client::prepareAndSendData()
     QString f_name(fileLineEdit->text());
 
     prepareFileName(f_name);
+#ifdef M_DEBUG
+    qDebug() << "fileNameSize: " << f_name.length() << ", " << f_name;
+#endif
     temp.append( char(f_name.length()) + f_name.toUtf8() );
 
     //Put the file content to array
