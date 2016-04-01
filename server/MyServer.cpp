@@ -119,10 +119,6 @@ QString Server::takeFileName(QByteArray &data)
 
 void Server::slotReadClient()
 {
-#ifdef M_DEBUG
-            qDebug() << "slotReadClient()";
-#endif
-
     QTcpSocket* pClientSocket = (QTcpSocket*)sender();
     QDataStream in(pClientSocket);
 //    quint32     m_size = 0;
@@ -134,7 +130,6 @@ void Server::slotReadClient()
         if (!m_size)
         {
             if (pClientSocket->bytesAvailable() < sizeof(quint16)) {
-                qDebug() << "1.break, pClientSocket->bytesAvailable()" << pClientSocket->bytesAvailable();
                 break;
             }
             in >> m_size;
@@ -143,7 +138,6 @@ void Server::slotReadClient()
         }
 
         if (pClientSocket->bytesAvailable() < m_size) {
-            qDebug() << "2.break, pClientSocket->bytesAvailable()" << pClientSocket->bytesAvailable();
             break;
         }
 
