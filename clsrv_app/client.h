@@ -51,4 +51,5 @@ private:
     quint16 blockSize;
 };
 
+
 #endif

@@ -5,6 +5,7 @@
 #include <QAbstractSocket>
 #include <QFileDialog>
 
+#include "splitter.h"
 #include "client.h"
 
 Client::Client(QWidget *parent)

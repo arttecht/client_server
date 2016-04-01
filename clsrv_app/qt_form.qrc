@@ -1,0 +1,8 @@
+<RCC>
+    <qresource prefix="/icon_resources">
+        <file>icons/Actions-files-2.png</file>
+        <file>icons/Actions-exit.png</file>
+        <file>icons/Actions-drop-icon.png</file>
+        <file>icons/Actions-app.png</file>
+    </qresource>
+</RCC>
