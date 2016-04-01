@@ -33,6 +33,7 @@ private:
     QStringList fortunes;
     QNetworkSession *networkSession;
     QFile file;
+    quint32 m_size;
 };
 
 #endif // _MYSERVER_H

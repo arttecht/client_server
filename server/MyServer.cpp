@@ -6,7 +6,7 @@
 #include <QtAlgorithms>
 
 Server::Server(QWidget *parent, qint32 port)
-:   QDialog(parent), tcp_Port(port), tcpServer(0) , networkSession(0)
+:   QDialog(parent), tcp_Port(port), tcpServer(0) , networkSession(0), m_size()
 {
     statusLabel = new QLabel;
     quitButton = new QPushButton(tr("Quit"));
@@ -119,9 +119,13 @@ QString Server::takeFileName(QByteArray &data)
 
 void Server::slotReadClient()
 {
+#ifdef M_DEBUG
+            qDebug() << "slotReadClient()";
+#endif
+
     QTcpSocket* pClientSocket = (QTcpSocket*)sender();
     QDataStream in(pClientSocket);
-    quint32     m_size = 0;
+//    quint32     m_size = 0;
     bool        cnt = false;
 
     in.setVersion(QDataStream::Qt_4_2);
@@ -130,18 +134,24 @@ void Server::slotReadClient()
         if (!m_size)
         {
             if (pClientSocket->bytesAvailable() < sizeof(quint16)) {
+                qDebug() << "1.break, pClientSocket->bytesAvailable()" << pClientSocket->bytesAvailable();
                 break;
             }
             in >> m_size;
             cnt = false;
+            qDebug() << "m_size" << m_size;
         }
 
         if (pClientSocket->bytesAvailable() < m_size) {
+            qDebug() << "2.break, pClientSocket->bytesAvailable()" << pClientSocket->bytesAvailable();
             break;
         }
 
         QByteArray data;
         in >> data;
+#ifdef M_DEBUG
+            qDebug() << "data.size()" << data.size();
+#endif
 
         if (!cnt)
         {
