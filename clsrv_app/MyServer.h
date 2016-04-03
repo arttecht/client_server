@@ -10,6 +10,9 @@ class QPushButton;
 class QTcpServer;
 class QNetworkSession;
 
+#define SESSION_OK  0
+#define SESSION_ERR 1
+
 class Server : public QDialog
 {
     Q_OBJECT
@@ -21,7 +24,7 @@ public:
 private slots:
     virtual void slotNewConnection();
     void slotReadClient();
-    void sessionOpened();
+    int sessionOpened();
 
     void setStoreFolder();
     void startServer();
@@ -40,6 +43,7 @@ private:
     QPushButton *quitButton;
     QDialogButtonBox *buttonBox;
     QGridLayout *mainLayout;
+    bool stateStartButton;
 
     QTcpServer *tcpServer;
     QStringList fortunes;
@@ -47,6 +51,7 @@ private:
 
     QFile file;
     quint32 m_size;
+    QString setDir;
 };
 
 #endif // _MYSERVER_H

@@ -1,3 +1,4 @@
+#include <QtCore>
 #include <QtWidgets>
 #include <QtNetwork>
 
@@ -6,10 +7,10 @@
 #include <QtAlgorithms>
 
 Server::Server(QWidget *parent, qint32 port)
-:   QDialog(parent), tcp_Port(port), tcpServer(0) , networkSession(0), m_size()
+:   QDialog(parent), tcp_Port(port), stateStartButton(0),
+    tcpServer(0) , networkSession(0), m_size(0), setDir("/home")
 {
     statusLabel = new QLabel;
-
     portLabel   = new QLabel;
     portLineEdit = new QLineEdit("22222");
     portLabel->setBuddy(portLineEdit);
@@ -18,8 +19,17 @@ Server::Server(QWidget *parent, qint32 port)
     startButton = new QPushButton(tr("Start Server"));
     quitButton  = new QPushButton(tr("Quit"));
 
-    //    quitButton->setAutoDefault(false);
+    buttonBox = new QDialogButtonBox;
+    buttonBox->addButton(setFolder, QDialogButtonBox::ActionRole);
+    buttonBox->addButton(startButton, QDialogButtonBox::ActionRole);
+    buttonBox->addButton(quitButton, QDialogButtonBox::RejectRole);
 
+    connect(setFolder, SIGNAL(clicked()), this, SLOT(setStoreFolder()));
+    connect(startButton, SIGNAL(clicked()), this, SLOT(startServer()));
+    connect(quitButton, SIGNAL(clicked()), this, SLOT(close()));
+    connect(tcpServer, SIGNAL(newConnection()), this, SLOT(slotNewConnection()));
+
+    //    quitButton->setAutoDefault(false);
     QNetworkConfigurationManager manager;
     if (manager.capabilities() & QNetworkConfigurationManager::NetworkSessionRequired) {
         // Get saved network configuration
@@ -41,28 +51,11 @@ Server::Server(QWidget *parent, qint32 port)
         statusLabel->setText(tr("Opening network session."));
         networkSession->open();
     } else {
-        sessionOpened();
+        if (sessionOpened() != SESSION_OK) {
+            quitButton->animateClick(10);
+        }
     }
 
-    buttonBox = new QDialogButtonBox;
-    buttonBox->addButton(setFolder, QDialogButtonBox::ActionRole);
-    buttonBox->addButton(startButton, QDialogButtonBox::ActionRole);
-    buttonBox->addButton(quitButton, QDialogButtonBox::RejectRole);
-
-    connect(setFolder, SIGNAL(clicked()), this, SLOT(setStoreFolder()));
-    connect(startButton, SIGNAL(clicked()), this, SLOT(startServer()));
-    connect(quitButton, SIGNAL(clicked()), this, SLOT(close()));
-    connect(tcpServer, SIGNAL(newConnection()), this, SLOT(slotNewConnection()));
-
-//    QHBoxLayout *buttonLayout = new QHBoxLayout;
-//    buttonLayout->addStretch(1);
-//    buttonLayout->addWidget(quitButton);
-//    buttonLayout->addStretch(1);
-
-//    QVBoxLayout *mainLayout = new QVBoxLayout;
-//    mainLayout->addWidget(statusLabel);
-//    mainLayout->addLayout(buttonLayout);
-//    setLayout(mainLayout);
 
     buttonBox->setMinimumHeight(30);
     portLineEdit->setMinimumWidth(20);
@@ -75,30 +68,57 @@ Server::Server(QWidget *parent, qint32 port)
 
     mainLayout->addWidget(buttonBox, 2, 0, 1, 0, Qt::AlignBottom);
 
-    //    mainLayout->addWidget(portLabel, 1, 0);
-//    mainLayout->addWidget(portLineEdit, 1, 1);
-//    mainLayout->addWidget(fileLabel, 2, 0);     //***
-//    mainLayout->addWidget(fileLineEdit, 2, 1);  //***
     setLayout(mainLayout);
-
-
     setWindowTitle(tr("Fortune Server"));
 }
 
 Server::~Server()
 {
+    if (statusLabel != NULL) delete statusLabel;
+    if (portLabel != NULL) delete portLabel;
+    if (portLineEdit != NULL) delete portLineEdit;
 
+    if (setFolder != NULL) delete setFolder;
+    if (startButton != NULL) delete startButton;
+    if (quitButton != NULL) delete quitButton;
+
+    if (networkSession != NULL) delete networkSession;
+    if (tcpServer != NULL) delete tcpServer;
 }
 
 void Server::setStoreFolder()
 {
+    qDebug() << "setStoreFolder()";
+    QString curDir = QFileDialog::getExistingDirectory(this, tr("Open Directory"),
+                                                    "/home",
+                                                    QFileDialog::ShowDirsOnly
+                                                    | QFileDialog::DontResolveSymlinks);
+    if (curDir.size() != 0) {
+        setDir.clear();
+        setDir = curDir;
+    }
+
+   qDebug() << "Dir: " << setDir;
 }
 
 void Server::startServer()
 {
+    if (!stateStartButton)
+    {
+        stateStartButton = true;
+        startButton->setText("Stop Server");
+        portLineEdit->setDisabled(true);
+    }
+    else
+    {
+        stateStartButton = false;
+        startButton->setText("Start Server");
+        portLineEdit->setDisabled(false);
+
+    }
 }
 
-void Server::sessionOpened()
+int Server::sessionOpened()
 {
     // Save the used configuration
     if (networkSession) {
@@ -121,7 +141,7 @@ void Server::sessionOpened()
                               tr("Unable to start the server: %1.")
                               .arg(tcpServer->errorString()));
         close();
-        return;
+        return SESSION_ERR;
     }
     QString ipAddress;
     QList<QHostAddress> ipAddressesList = QNetworkInterface::allAddresses();
@@ -136,12 +156,12 @@ void Server::sessionOpened()
     // if we did not find one, use IPv4 localhost
     if (ipAddress.isEmpty())
         ipAddress = QHostAddress(QHostAddress::LocalHost).toString();
-//    statusLabel->setText(tr("The server is running on\n\nIP: %1\nport: %2\n\n"
-//                            "Run the Fortune Client example now.")
-//                         .arg(ipAddress).arg(tcpServer->serverPort()));
+
     statusLabel->setText(tr("  The Server is ready to receive file(s)\n\n    IP:   \"%1\"").arg(ipAddress));
     portLabel->setText( tr("Port:") );
     portLineEdit->setText(tr("%1").arg(tcpServer->serverPort()));
+
+    return SESSION_OK;
 }
 
 void Server::slotNewConnection()

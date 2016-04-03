@@ -90,7 +90,7 @@ void Splitter::openServer()
     arr = this->saveGeometry();
 
     Server server(this, 22222);
-    server.exec();
+    qDebug() << "State Server: " << server.exec();
 
     this->restoreGeometry(arr);
     this->show();

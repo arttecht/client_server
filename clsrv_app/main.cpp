@@ -10,7 +10,6 @@ int main(int argc, char *argv[])
 
     app.setWindowIcon( QIcon(":/icon_resources/icons/Actions-app.png"));
     Splitter mainapp;
-
     mainapp.show();
 
     return app.exec();
