@@ -21,6 +21,8 @@ public:
     Server(QWidget *parent = 0, qint32 port = 0);
     ~Server();
 
+    void openSession();
+    void closeSession();
 private slots:
     virtual void slotNewConnection();
     void slotReadClient();
@@ -36,7 +38,9 @@ private:
     qint32  tcp_Port;
     QLabel *statusLabel;
     QLabel *portLabel;
+    QLabel *folderLabel;
     QLineEdit *portLineEdit;
+    QLineEdit *folderLineEdit;
 
     QPushButton *setFolder;
     QPushButton *startButton;

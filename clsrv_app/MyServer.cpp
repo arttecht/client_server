@@ -12,10 +12,12 @@ Server::Server(QWidget *parent, qint32 port)
 {
     statusLabel = new QLabel;
     portLabel   = new QLabel;
+    folderLabel   = new QLabel(tr("Folder:"));
     portLineEdit = new QLineEdit("22222");
+    folderLineEdit = new QLineEdit(setDir);
     portLabel->setBuddy(portLineEdit);
 
-    setFolder   = new QPushButton(tr("Set Folder"));
+    setFolder   = new QPushButton(tr("Set Store Folder"));
     startButton = new QPushButton(tr("Start Server"));
     quitButton  = new QPushButton(tr("Quit"));
 
@@ -24,12 +26,93 @@ Server::Server(QWidget *parent, qint32 port)
     buttonBox->addButton(startButton, QDialogButtonBox::ActionRole);
     buttonBox->addButton(quitButton, QDialogButtonBox::RejectRole);
 
+    connect(quitButton, SIGNAL(clicked()), this, SLOT(close()));
     connect(setFolder, SIGNAL(clicked()), this, SLOT(setStoreFolder()));
     connect(startButton, SIGNAL(clicked()), this, SLOT(startServer()));
-    connect(quitButton, SIGNAL(clicked()), this, SLOT(close()));
-    connect(tcpServer, SIGNAL(newConnection()), this, SLOT(slotNewConnection()));
 
-    //    quitButton->setAutoDefault(false);
+    buttonBox->setMinimumHeight(30);
+    buttonBox->setMinimumWidth(600);
+    portLineEdit->setMinimumWidth(20);
+
+    mainLayout = new QGridLayout;
+    mainLayout->addWidget(statusLabel, 0, 0, 1, 3);
+
+    mainLayout->addWidget(portLabel, 1, 0);
+    mainLayout->addWidget(portLineEdit, 1, 1);
+
+    mainLayout->addWidget(folderLabel, 2, 0);
+    mainLayout->addWidget(folderLineEdit, 2, 1);
+
+    mainLayout->addWidget(buttonBox, 3, 0, 1, 0, Qt::AlignBottom);
+
+    setLayout(mainLayout);
+    setWindowTitle(tr("Fortune Server"));
+}
+
+Server::~Server()
+{
+    qDebug() << "Server::~Server()";
+    delete statusLabel;
+    delete portLabel;
+    delete portLineEdit;
+
+    delete folderLabel;
+    delete folderLineEdit;
+
+    delete setFolder;
+    delete startButton;
+    delete quitButton;
+
+    delete networkSession;
+
+    if (tcpServer != NULL) {
+        qDebug() << "delete tcpServer";
+        delete tcpServer;
+    }
+}
+
+void Server::setStoreFolder()
+{
+    qDebug() << "setStoreFolder()";
+    QString curDir = QFileDialog::getExistingDirectory(this, tr("Open Directory"),
+                                                    "/home",
+                                                    QFileDialog::ShowDirsOnly
+                                                    | QFileDialog::DontResolveSymlinks);
+    if (curDir.size() != 0) {
+        setDir.clear();
+        setDir = curDir;
+    }
+    folderLineEdit->setText(setDir);
+    qDebug() << "Dir: " << setDir;
+}
+
+void Server::startServer()
+{
+    if (!stateStartButton)
+    {
+        stateStartButton = true;
+        startButton->setText("Stop Server");
+        portLineEdit->setDisabled(true);
+        folderLineEdit->setDisabled(true);
+        setFolder->setDisabled(true);
+
+        openSession();
+    }
+    else
+    {
+        stateStartButton = false;
+        startButton->setText("Start Server");
+        portLineEdit->setDisabled(false);
+        folderLineEdit->setDisabled(false);
+        setFolder->setDisabled(false);
+
+        closeSession();
+    }
+}
+
+void Server::openSession()
+{
+    qDebug() << "openSession()";
     QNetworkConfigurationManager manager;
     if (manager.capabilities() & QNetworkConfigurationManager::NetworkSessionRequired) {
         // Get saved network configuration
@@ -52,69 +135,18 @@ Server::Server(QWidget *parent, qint32 port)
         networkSession->open();
     } else {
         if (sessionOpened() != SESSION_OK) {
-            quitButton->animateClick(10);
+//            quitButton->animateClick(10);
         }
     }
-
-
-    buttonBox->setMinimumHeight(30);
-    portLineEdit->setMinimumWidth(20);
-
-    mainLayout = new QGridLayout;
-    mainLayout->addWidget(statusLabel, 0, 0, 1, 3);
-
-    mainLayout->addWidget(portLabel, 1, 0);
-    mainLayout->addWidget(portLineEdit, 1, 1);
-
-    mainLayout->addWidget(buttonBox, 2, 0, 1, 0, Qt::AlignBottom);
-
-    setLayout(mainLayout);
-    setWindowTitle(tr("Fortune Server"));
+    connect(tcpServer, SIGNAL(newConnection()), this, SLOT(slotNewConnection()));
 }
 
-Server::~Server()
+void Server::closeSession()
 {
-    if (statusLabel != NULL) delete statusLabel;
-    if (portLabel != NULL) delete portLabel;
-    if (portLineEdit != NULL) delete portLineEdit;
-
-    if (setFolder != NULL) delete setFolder;
-    if (startButton != NULL) delete startButton;
-    if (quitButton != NULL) delete quitButton;
-
-    if (networkSession != NULL) delete networkSession;
-    if (tcpServer != NULL) delete tcpServer;
-}
-
-void Server::setStoreFolder()
-{
-    qDebug() << "setStoreFolder()";
-    QString curDir = QFileDialog::getExistingDirectory(this, tr("Open Directory"),
-                                                    "/home",
-                                                    QFileDialog::ShowDirsOnly
-                                                    | QFileDialog::DontResolveSymlinks);
-    if (curDir.size() != 0) {
-        setDir.clear();
-        setDir = curDir;
-    }
-
-   qDebug() << "Dir: " << setDir;
-}
-
-void Server::startServer()
-{
-    if (!stateStartButton)
-    {
-        stateStartButton = true;
-        startButton->setText("Stop Server");
-        portLineEdit->setDisabled(true);
-    }
-    else
-    {
-        stateStartButton = false;
-        startButton->setText("Start Server");
-        portLineEdit->setDisabled(false);
-
+    if (tcpServer) {
+        tcpServer->close();
+        delete tcpServer;
+        tcpServer = 0;
     }
 }
 
@@ -164,8 +196,10 @@ int Server::sessionOpened()
     return SESSION_OK;
 }
 
+
 void Server::slotNewConnection()
 {
+    qDebug() << "slotNewConnection()";
     QTcpSocket *clientConnection = tcpServer->nextPendingConnection();
 
     connect(clientConnection, SIGNAL(disconnected()), clientConnection, SLOT(deleteLater()));
@@ -177,17 +211,27 @@ void Server::slotNewConnection()
 #define M_DEBUG
 QString Server::takeFileName(QByteArray &data)
 {
-    QString str;
+    qDebug() << "takeFileName()";
+    QString str = setDir;
+
+    if (str[0] == '\\')
+        str.push_back('\\');
+    else
+        str.push_back('/');
+
     for (qint32 i = 1; i < data[0] + 1; ++i)
     {
         str.push_back( char(data[i]) );
     }
+    qDebug() << str;
+
     return str;
 }
 
 
 void Server::slotReadClient()
 {
+    qDebug() << "slotReadClient()";
     QTcpSocket* pClientSocket = (QTcpSocket*)sender();
     QDataStream in(pClientSocket);
     bool        cnt = false;
@@ -218,6 +262,7 @@ void Server::slotReadClient()
             if (!file.open(QIODevice::WriteOnly))
             {
                 qDebug() << "File isn't created!";
+                m_size  = 0;
                 return;
             }
 
