@@ -5,16 +5,18 @@
 #include <stdlib.h>
 #include "MyServer.h"
 #include <QtAlgorithms>
+#include "splitter.h"
+
 
 Server::Server(QWidget *parent, qint32 port)
 :   QDialog(parent), tcp_Port(port), stateStartButton(0),
-    tcpServer(0) , networkSession(0), m_size(0), setDir("/home/artem/PRJ/qt_client_server/store"),
+    tcpServer(0) , networkSession(0), m_size(0), setDir("/home"),
     model(0)
 {
+
     statusLabel = new QLabel(tr("  The Server is ready to configure\n\n    IP:   \"aaa.bbb.ccc.ddd\""));
     portLabel   = new QLabel( tr("Port:") );
     folderLabel   = new QLabel(tr("Folder:"));
-//    portLineEdit = new QLineEdit("22222");
     portLineEdit = new QLineEdit(tr("%1").arg(tcp_Port));
     folderLineEdit = new QLineEdit(setDir);
     portLabel->setBuddy(portLineEdit);
@@ -57,7 +59,6 @@ Server::Server(QWidget *parent, qint32 port)
 
 Server::~Server()
 {
-    qDebug() << "Server::~Server()";
     delete statusLabel;
     delete portLabel;
     delete portLineEdit;
@@ -72,7 +73,6 @@ Server::~Server()
     delete networkSession;
 
     if (tcpServer != NULL) {
-        qDebug() << "delete tcpServer";
         delete tcpServer;
     }
     delete model;
@@ -81,7 +81,9 @@ Server::~Server()
 
 void Server::setStoreFolder()
 {
+#ifdef M_DEBUG
     qDebug() << "setStoreFolder()";
+#endif
     QString curDir = QFileDialog::getExistingDirectory(this, tr("Open Directory"),
                                                     "/home",
                                                     QFileDialog::ShowDirsOnly
@@ -91,7 +93,9 @@ void Server::setStoreFolder()
         setDir = curDir;
     }
     folderLineEdit->setText(setDir);
+#ifdef M_DEBUG
     qDebug() << "Dir: " << setDir;
+#endif
 }
 
 void Server::startServer()
@@ -171,22 +175,26 @@ int Server::sessionOpened()
 
 void Server::slotNewConnection()
 {
+#ifdef M_DEBUG
     qDebug() << "slotNewConnection()";
+#endif
     QTcpSocket *clientConnection = tcpServer->nextPendingConnection();
 
     connect(clientConnection, SIGNAL(disconnected()), clientConnection, SLOT(deleteLater()));
     connect(clientConnection, SIGNAL(readyRead()), this, SLOT(slotReadClient()));
 
     sendToClient(clientConnection, "Server Response: Connected");
-    time.start();
     numOfFiles = 0;
     m_size = 0;
+    totalBytes = 0;
+    time.start();
 }
 
-#define M_DEBUG
 QString Server::takeFileName(QByteArray &data)
 {
+#ifdef M_DEBUG
     qDebug() << "takeFileName()";
+#endif
     QString str = setDir;
 
     if (str[0] == '\\')
@@ -198,8 +206,9 @@ QString Server::takeFileName(QByteArray &data)
     {
         str.push_back( char(data[i]) );
     }
+#ifdef M_DEBUG
     qDebug() << str;
-
+#endif
     return str;
 }
 
@@ -218,7 +227,9 @@ void Server::addListViewItem(const QString &str)
 
 void Server::slotReadClient()
 {
+#ifdef M_DEBUG
     qDebug() << "slotReadClient()";
+#endif
     QTcpSocket* pClientSocket = (QTcpSocket*)sender();
     QDataStream in(pClientSocket);
     bool        cnt = false;
@@ -233,28 +244,31 @@ void Server::slotReadClient()
             }
             in >> m_size;
             cnt = false;
+#ifdef M_DEBUG
             qDebug() << "m_size" << m_size;
+#endif
         }
 
         if (pClientSocket->bytesAvailable() < m_size) {
-            qDebug() << "[***] BREAK!!!";
             break;
         }
 
         QByteArray data;
         in >> data;
 
-//        qDebug() << "[1] data[0]: " << qint32(data[0]);
-//        qDebug() << "[2] data.size(): " << data.size();
-        if (m_size == 1 && data.size() == 1)
+#ifdef M_DEBUG
+        qDebug() << "[1] data[0]: " << qint32(data[0]);
+        qDebug() << "[2] data.size(): " << data.size();
+#endif
+        if (m_size == 0 && data.size() == 1)
         {
-            qDebug() << "[!] data.size()" << data.size();
             qint32 parcelTime = time.elapsed();
-
             addListViewItem("======================================================");
-            addListViewItem(tr("Passed %1 file(s); Elapsed time: %2 msec").arg(numOfFiles).arg(parcelTime));
+            addListViewItem(tr("Passed %1 file(s); Elapsed time: %2 msec; Total: %3 bytes.")
+                            .arg(numOfFiles)
+                            .arg(parcelTime)
+                            .arg(totalBytes));
             sendToClient(pClientSocket, "Server Response: Finalization Accepted");
-            m_size  = 0;
             break;
         }
 
@@ -264,15 +278,18 @@ void Server::slotReadClient()
             file.setFileName( fileName );
             if (!file.open(QIODevice::WriteOnly))
             {
+#ifdef M_DEBUG
                 qDebug() << "File isn't created!";
+#endif
                 m_size  = 0;
                 return;
             }
+            m_size = m_size - sizeof(quint32) - data[0] - 1;
+            totalBytes += m_size;
 
-            fileName.append(tr("; %1 bytes").arg(m_size));
+            fileName.append(tr("; [%1 bytes]").arg(m_size));
             addListViewItem(fileName);
 
-            m_size = m_size - sizeof(quint32) - data[0] - 1;
             file.write( data.right(m_size) );
 
 #ifdef M_DEBUG
@@ -309,7 +326,9 @@ void Server::sendToClient(QTcpSocket* pSocket, const QString& str)
 
 void Server::openSession()
 {
+#ifdef M_DEBUG
     qDebug() << "openSession()";
+#endif
     QNetworkConfigurationManager manager;
     if (manager.capabilities() & QNetworkConfigurationManager::NetworkSessionRequired) {
         // Get saved network configuration

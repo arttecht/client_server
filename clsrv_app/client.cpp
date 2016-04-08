@@ -31,7 +31,7 @@ Client::Client(QWidget *parent)
         ipAddress = QHostAddress(QHostAddress::LocalHost).toString();
 
     hostLineEdit = new QLineEdit(ipAddress);
-    portLineEdit = new QLineEdit("22222");
+    portLineEdit = new QLineEdit(tr("%1").arg(DEFAULT_CLIENT_PORT));
     fileLineEdit = new QLineEdit();
     portLineEdit->setValidator(new QIntValidator(1, 65535, this));
 
@@ -95,6 +95,7 @@ Client::~Client()
     delete fileLineEdit;
     delete statusLabel;
 
+    delete setFileButton;
     delete getFortuneButton;
     delete quitButton;
 
@@ -103,7 +104,6 @@ Client::~Client()
     delete mainLayout;
 }
 
-#define M_DEBUG
 void Client::openFileDialog()
 {
     listFile = QFileDialog::getOpenFileNames(this, "Select one or more files to open", "", "*");
@@ -206,13 +206,15 @@ void Client::prepareAndSendData()
 #endif
         arrBlock.clear();
         temp.clear();
+        out.device()->seek(0);
     }
 
     //Signaling for the end of parcel
-    out << quint32(1) << '1';
+    temp.append( char(0) );
+    out << quint32(0) << temp;
 
     out.device()->seek(0);
-    out << quint32(1);
+    out << quint32(0);
     tcpSocket->write(arrBlock);
 }
 
