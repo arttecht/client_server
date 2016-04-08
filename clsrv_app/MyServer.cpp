@@ -8,12 +8,14 @@
 
 Server::Server(QWidget *parent, qint32 port)
 :   QDialog(parent), tcp_Port(port), stateStartButton(0),
-    tcpServer(0) , networkSession(0), m_size(0), setDir("/home")
+    tcpServer(0) , networkSession(0), m_size(0), setDir("/home/artem/PRJ/qt_client_server/store"),
+    model(0)
 {
-    statusLabel = new QLabel;
-    portLabel   = new QLabel;
+    statusLabel = new QLabel(tr("  The Server is ready to configure\n\n    IP:   \"aaa.bbb.ccc.ddd\""));
+    portLabel   = new QLabel( tr("Port:") );
     folderLabel   = new QLabel(tr("Folder:"));
-    portLineEdit = new QLineEdit("22222");
+//    portLineEdit = new QLineEdit("22222");
+    portLineEdit = new QLineEdit(tr("%1").arg(tcp_Port));
     folderLineEdit = new QLineEdit(setDir);
     portLabel->setBuddy(portLineEdit);
 
@@ -34,6 +36,9 @@ Server::Server(QWidget *parent, qint32 port)
     buttonBox->setMinimumWidth(600);
     portLineEdit->setMinimumWidth(20);
 
+
+    listView = new QListView;
+
     mainLayout = new QGridLayout;
     mainLayout->addWidget(statusLabel, 0, 0, 1, 3);
 
@@ -44,6 +49,7 @@ Server::Server(QWidget *parent, qint32 port)
     mainLayout->addWidget(folderLineEdit, 2, 1);
 
     mainLayout->addWidget(buttonBox, 3, 0, 1, 0, Qt::AlignBottom);
+    mainLayout->addWidget(listView, 4, 0, 1, 0);
 
     setLayout(mainLayout);
     setWindowTitle(tr("Fortune Server"));
@@ -69,6 +75,8 @@ Server::~Server()
         qDebug() << "delete tcpServer";
         delete tcpServer;
     }
+    delete model;
+    delete listView;
 }
 
 void Server::setStoreFolder()
@@ -96,7 +104,11 @@ void Server::startServer()
         folderLineEdit->setDisabled(true);
         setFolder->setDisabled(true);
 
+        tcp_Port = portLineEdit->text().toInt();
         openSession();
+
+        fileList.clear();
+        addListViewItem("");
     }
     else
     {
@@ -106,47 +118,8 @@ void Server::startServer()
         folderLineEdit->setDisabled(false);
         setFolder->setDisabled(false);
 
+        statusLabel->setText(tr("  The Server is interrupted\n\n    IP:   \"aaa.bbb.ccc.ddd\""));
         closeSession();
-    }
-}
-
-void Server::openSession()
-{
-    qDebug() << "openSession()";
-    QNetworkConfigurationManager manager;
-    if (manager.capabilities() & QNetworkConfigurationManager::NetworkSessionRequired) {
-        // Get saved network configuration
-        QSettings settings(QSettings::UserScope, QLatin1String("Trolltech"));
-        settings.beginGroup(QLatin1String("QtNetwork"));
-        const QString id = settings.value(QLatin1String("DefaultNetworkConfiguration")).toString();
-        settings.endGroup();
-
-        // If the saved network configuration is not currently discovered use the system default
-        QNetworkConfiguration config = manager.configurationFromIdentifier(id);
-        if ((config.state() & QNetworkConfiguration::Discovered) !=
-            QNetworkConfiguration::Discovered) {
-            config = manager.defaultConfiguration();
-        }
-
-        networkSession = new QNetworkSession(config, this);
-        connect(networkSession, SIGNAL(opened()), this, SLOT(sessionOpened()));
-
-        statusLabel->setText(tr("Opening network session."));
-        networkSession->open();
-    } else {
-        if (sessionOpened() != SESSION_OK) {
-//            quitButton->animateClick(10);
-        }
-    }
-    connect(tcpServer, SIGNAL(newConnection()), this, SLOT(slotNewConnection()));
-}
-
-void Server::closeSession()
-{
-    if (tcpServer) {
-        tcpServer->close();
-        delete tcpServer;
-        tcpServer = 0;
     }
 }
 
@@ -190,7 +163,6 @@ int Server::sessionOpened()
         ipAddress = QHostAddress(QHostAddress::LocalHost).toString();
 
     statusLabel->setText(tr("  The Server is ready to receive file(s)\n\n    IP:   \"%1\"").arg(ipAddress));
-    portLabel->setText( tr("Port:") );
     portLineEdit->setText(tr("%1").arg(tcpServer->serverPort()));
 
     return SESSION_OK;
@@ -206,6 +178,9 @@ void Server::slotNewConnection()
     connect(clientConnection, SIGNAL(readyRead()), this, SLOT(slotReadClient()));
 
     sendToClient(clientConnection, "Server Response: Connected");
+    time.start();
+    numOfFiles = 0;
+    m_size = 0;
 }
 
 #define M_DEBUG
@@ -228,6 +203,18 @@ QString Server::takeFileName(QByteArray &data)
     return str;
 }
 
+void Server::addListViewItem(const QString &str)
+{
+    if (model)
+        delete model;
+
+    if (str.size() != 0) {
+        fileList.append(str);
+    }
+    model = new QStringListModel(fileList);
+    listView->setModel(model);
+
+}
 
 void Server::slotReadClient()
 {
@@ -250,15 +237,31 @@ void Server::slotReadClient()
         }
 
         if (pClientSocket->bytesAvailable() < m_size) {
+            qDebug() << "[***] BREAK!!!";
             break;
         }
 
         QByteArray data;
         in >> data;
 
+//        qDebug() << "[1] data[0]: " << qint32(data[0]);
+//        qDebug() << "[2] data.size(): " << data.size();
+        if (m_size == 1 && data.size() == 1)
+        {
+            qDebug() << "[!] data.size()" << data.size();
+            qint32 parcelTime = time.elapsed();
+
+            addListViewItem("======================================================");
+            addListViewItem(tr("Passed %1 file(s); Elapsed time: %2 msec").arg(numOfFiles).arg(parcelTime));
+            sendToClient(pClientSocket, "Server Response: Finalization Accepted");
+            m_size  = 0;
+            break;
+        }
+
         if (!cnt)
         {
-            file.setFileName( takeFileName(data) );
+            QString fileName = takeFileName(data);
+            file.setFileName( fileName );
             if (!file.open(QIODevice::WriteOnly))
             {
                 qDebug() << "File isn't created!";
@@ -266,20 +269,26 @@ void Server::slotReadClient()
                 return;
             }
 
+            fileName.append(tr("; %1 bytes").arg(m_size));
+            addListViewItem(fileName);
+
             m_size = m_size - sizeof(quint32) - data[0] - 1;
             file.write( data.right(m_size) );
 
 #ifdef M_DEBUG
-            qDebug() << "Fileame: " << takeFileName(data);
+            qDebug() << "Fileame: " << fileName;
             qDebug() << "m_size: " << m_size;
             qDebug() << "str_size: " << quint32(data[0]);
 #endif
         }
         m_size  = 0;
         cnt     = true;
+        numOfFiles++;
         sendToClient(pClientSocket, "Server Response: Received");
+
+        data.clear();
+        file.close();
     }
-    file.close();
 }
 
 void Server::sendToClient(QTcpSocket* pSocket, const QString& str)
@@ -296,4 +305,44 @@ void Server::sendToClient(QTcpSocket* pSocket, const QString& str)
     out << quint16(arrBlock.size() - sizeof(quint16));
 
     pSocket->write(arrBlock);
+}
+
+void Server::openSession()
+{
+    qDebug() << "openSession()";
+    QNetworkConfigurationManager manager;
+    if (manager.capabilities() & QNetworkConfigurationManager::NetworkSessionRequired) {
+        // Get saved network configuration
+        QSettings settings(QSettings::UserScope, QLatin1String("Trolltech"));
+        settings.beginGroup(QLatin1String("QtNetwork"));
+        const QString id = settings.value(QLatin1String("DefaultNetworkConfiguration")).toString();
+        settings.endGroup();
+
+        // If the saved network configuration is not currently discovered use the system default
+        QNetworkConfiguration config = manager.configurationFromIdentifier(id);
+        if ((config.state() & QNetworkConfiguration::Discovered) !=
+            QNetworkConfiguration::Discovered) {
+            config = manager.defaultConfiguration();
+        }
+
+        networkSession = new QNetworkSession(config, this);
+        connect(networkSession, SIGNAL(opened()), this, SLOT(sessionOpened()));
+
+        statusLabel->setText(tr("Opening network session."));
+        networkSession->open();
+    } else {
+        if (sessionOpened() != SESSION_OK) {
+//            quitButton->animateClick(10);
+        }
+    }
+    connect(tcpServer, SIGNAL(newConnection()), this, SLOT(slotNewConnection()));
+}
+
+void Server::closeSession()
+{
+    if (tcpServer) {
+        tcpServer->close();
+        delete tcpServer;
+        tcpServer = 0;
+    }
 }

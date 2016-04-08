@@ -49,7 +49,8 @@ private:
     QTcpSocket *tcpSocket;
     QString currentFortune;
     quint16 blockSize;
-};
 
+    QStringList listFile;
+};
 
 #endif

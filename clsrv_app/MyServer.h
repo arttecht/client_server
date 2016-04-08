@@ -34,6 +34,7 @@ private slots:
 private:
     void sendToClient(QTcpSocket* pSocket, const QString& str);
     QString takeFileName(QByteArray &data);
+    void addListViewItem(const QString &str);
 
     qint32  tcp_Port;
     QLabel *statusLabel;
@@ -47,15 +48,22 @@ private:
     QPushButton *quitButton;
     QDialogButtonBox *buttonBox;
     QGridLayout *mainLayout;
+
     bool stateStartButton;
 
     QTcpServer *tcpServer;
-    QStringList fortunes;
+//    QStringList fortunes;
     QNetworkSession *networkSession;
 
     QFile file;
     quint32 m_size;
     QString setDir;
+    QTime time;
+    quint32 numOfFiles;
+
+    QStringList fileList;
+    QAbstractItemModel *model;
+    QListView *listView;
 };
 
 #endif // _MYSERVER_H

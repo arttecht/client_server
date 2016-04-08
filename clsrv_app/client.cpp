@@ -32,8 +32,7 @@ Client::Client(QWidget *parent)
 
     hostLineEdit = new QLineEdit(ipAddress);
     portLineEdit = new QLineEdit("22222");
-    fileLineEdit = new QLineEdit("vim.txt");
-//    fileLineEdit = new QLineEdit();
+    fileLineEdit = new QLineEdit();
     portLineEdit->setValidator(new QIntValidator(1, 65535, this));
 
     hostLabel->setBuddy(hostLineEdit);
@@ -43,14 +42,12 @@ Client::Client(QWidget *parent)
     statusLabel = new QLabel(tr("This examples requires that you run the "
                                 "File Receiver Server example as well."));
 
-
-    setFileButton = new QPushButton(tr("File Insert")); //***
+    setFileButton = new QPushButton(tr("File Insert"));
+    quitButton = new QPushButton(tr("Quit"));
 
     getFortuneButton = new QPushButton(tr("Send File"));
     getFortuneButton->setDefault(true);
     getFortuneButton->setEnabled(true);
-
-    quitButton = new QPushButton(tr("Quit"));
 
     buttonBox = new QDialogButtonBox;
     buttonBox->addButton(setFileButton, QDialogButtonBox::ActionRole);
@@ -78,8 +75,8 @@ Client::Client(QWidget *parent)
     mainLayout->addWidget(hostLineEdit, 0, 1);
     mainLayout->addWidget(portLabel, 1, 0);
     mainLayout->addWidget(portLineEdit, 1, 1);
-    mainLayout->addWidget(fileLabel, 2, 0);     //***
-    mainLayout->addWidget(fileLineEdit, 2, 1);  //***
+    mainLayout->addWidget(fileLabel, 2, 0);
+    mainLayout->addWidget(fileLineEdit, 2, 1);
     mainLayout->addWidget(statusLabel, 3, 0, 1, 3);
     mainLayout->addWidget(buttonBox, 4, 0, 1, 3);
     setLayout(mainLayout);
@@ -106,25 +103,42 @@ Client::~Client()
     delete mainLayout;
 }
 
+#define M_DEBUG
 void Client::openFileDialog()
 {
-    QString str = QFileDialog::getOpenFileName(this, "Select File", "", "*");
-    fileLineEdit->setText(str);
+    listFile = QFileDialog::getOpenFileNames(this, "Select one or more files to open", "", "*");
+
+    QString strLine;
+    if (listFile.size()) {
+        strLine = listFile[0];
+#ifdef M_DEBUG
+        qDebug() << strLine;
+#endif
+    }
+
+    for (qint32 i = 1; i < listFile.size(); ++i)
+    {
+        QString fileName = listFile[i];
+        prepareFileName(fileName);
+        strLine.append(';' + fileName);
+#ifdef M_DEBUG
+        qDebug() << fileName;
+#endif
+    }
+    fileLineEdit->setText(strLine);
+//    qDebug() << "ListFile: " << listFile;
 }
 
 void Client::requestNewFortune()
 {
     getFortuneButton->setEnabled(false);
+
     blockSize = 0;
-
     tcpSocket->abort();
-    tcpSocket->connectToHost(hostLineEdit->text(),
-                             portLineEdit->text().toInt());
-
+    tcpSocket->connectToHost(hostLineEdit->text(), portLineEdit->text().toInt());
     connect(tcpSocket, SIGNAL(readyRead()), this, SLOT(readFortune()));
 }
 
-#define M_DEBUG
 
 void Client::prepareFileName(QString &filename)
 {
@@ -152,41 +166,54 @@ void Client::prepareFileName(QString &filename)
 
 void Client::prepareAndSendData()
 {
-#ifdef M_DEBUG
-    qDebug() << "fileNameSize: " << fileLineEdit->text().length() << ", " << fileLineEdit->text();
-#endif
-    QFile file(fileLineEdit->text());
-    if (!file.open(QIODevice::ReadOnly)) {
-        QMessageBox::information(this, tr("Fortune Client"), tr("The file is not found"));
-        return;
-    }
-
     QByteArray  arrBlock, temp;
     QDataStream out(&arrBlock, QIODevice::ReadWrite);
-
     out.setVersion(QDataStream::Qt_4_2);
 
-    //Take the clear filename without path
-    QString f_name(fileLineEdit->text());
-
-    prepareFileName(f_name);
+    for (qint32 i = 0; i < listFile.size(); ++i)
+    {
+        QString currFile = listFile[i];
 #ifdef M_DEBUG
-    qDebug() << "fileNameSize: " << f_name.length() << ", " << f_name;
+        qDebug() << "fileNameSize: " << currFile.length() << ", " << currFile;
 #endif
-    temp.append( char(f_name.length()) + f_name.toUtf8() );
 
-    //Put the file content to array
-    temp.append(file.readAll().data(), file.size());
+        QFile file(currFile);
+        if (!file.open(QIODevice::ReadOnly)) {
+            QMessageBox::information(this, tr("Fortune Client"), tr("The file is not found"));
+            return;
+        }
 
-    out << quint32(0) << temp;
+        //Take the clear filename without path
+        QString f_name(currFile);
+
+        prepareFileName(f_name);
+#ifdef M_DEBUG
+        qDebug() << "fileNameSize: " << f_name.length() << ", " << f_name;
+#endif
+        temp.append( char(f_name.length()) + f_name.toUtf8() );
+
+        //Put the file content to array
+        temp.append(file.readAll().data(), file.size());
+
+        out << quint32(0) << temp;
+
+        out.device()->seek(0);
+        out << quint32(arrBlock.size() - sizeof(quint32));
+
+        tcpSocket->write(arrBlock);
+#ifdef M_DEBUG
+        qDebug() << "arrBlock Size: " << arrBlock.length();
+#endif
+        arrBlock.clear();
+        temp.clear();
+    }
+
+    //Signaling for the end of parcel
+    out << quint32(1) << '1';
 
     out.device()->seek(0);
-    out << quint32(arrBlock.size() - sizeof(quint32));
-
+    out << quint32(1);
     tcpSocket->write(arrBlock);
-#ifdef M_DEBUG
-    qDebug() << "arrBlock Size: " << arrBlock.length();
-#endif
 }
 
 void Client::readFortune()
