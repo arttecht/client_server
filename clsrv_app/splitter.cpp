@@ -9,7 +9,6 @@ Splitter::Splitter(QWidget *parent) : QDialog(parent)
     statusLabel = new QLabel(tr("This application requires that you run \n"
                                 "that one on the other host as well."));
 
-
     setClient = new QPushButton(tr("Client side"));
     setServer = new QPushButton(tr("Server side"));
     quitButton = new QPushButton(tr("Quit"));

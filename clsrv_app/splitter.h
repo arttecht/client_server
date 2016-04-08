@@ -5,6 +5,11 @@
 #include <QDialog>
 #include <QTcpSocket>
 
+#define M_DEBUG
+#define DEFAULT_CLIENT_PORT 22222
+#define DEFAULT_SERVER_PORT 22222
+
+
 class QDialogButtonBox;
 class QLabel;
 class QLineEdit;

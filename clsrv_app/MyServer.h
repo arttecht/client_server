@@ -52,7 +52,6 @@ private:
     bool stateStartButton;
 
     QTcpServer *tcpServer;
-//    QStringList fortunes;
     QNetworkSession *networkSession;
 
     QFile file;
@@ -60,6 +59,7 @@ private:
     QString setDir;
     QTime time;
     quint32 numOfFiles;
+    quint32 totalBytes;
 
     QStringList fileList;
     QAbstractItemModel *model;

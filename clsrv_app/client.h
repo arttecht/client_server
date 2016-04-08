@@ -5,6 +5,7 @@
 #include <QDialog>
 #include <QTcpSocket>
 
+
 class QDialogButtonBox;
 class QLabel;
 class QLineEdit;
