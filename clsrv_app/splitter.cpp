@@ -60,8 +60,6 @@ Splitter::~Splitter()
     delete mainLayout;
 }
 
-#define M_DEBUG
-
 void Splitter::openClient()
 {
 #ifdef M_DEBUG
@@ -84,13 +82,14 @@ void Splitter::openServer()
 #ifdef M_DEBUG
     qDebug() << "Splitter::openServer()";
 #endif
+
     this->setVisible(false);
 
     QByteArray arr;
     arr = this->saveGeometry();
 
-    Server server(this, 22222);
-    qDebug() << "State Server: " << server.exec();
+    Server server(this, DEFAULT_SERVER_PORT);
+    server.exec();
 
     this->restoreGeometry(arr);
     this->show();
