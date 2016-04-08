@@ -6,7 +6,13 @@
 #include <QFileDialog>
 
 #include "splitter.h"
+
+#include <cstdio>
+#include <sys/stat.h>
 #include "client.h"
+
+QTextStream out(stdout);
+
 
 Client::Client(QWidget *parent)
 :   QDialog(parent)
@@ -169,29 +175,31 @@ void Client::prepareAndSendData()
     QByteArray  arrBlock, temp;
     QDataStream out(&arrBlock, QIODevice::ReadWrite);
     out.setVersion(QDataStream::Qt_4_2);
+    struct stat sb;
 
     for (qint32 i = 0; i < listFile.size(); ++i)
     {
-        QString currFile = listFile[i];
+        QString f_name = listFile[i];
 #ifdef M_DEBUG
-        qDebug() << "fileNameSize: " << currFile.length() << ", " << currFile;
+        qDebug() << "fileNameSize: " << f_name.length() << ", " << f_name;
 #endif
 
-        QFile file(currFile);
+        QFile file(f_name);
         if (!file.open(QIODevice::ReadOnly)) {
             QMessageBox::information(this, tr("Fortune Client"), tr("The file is not found"));
             return;
         }
 
         //Take the clear filename without path
-        QString f_name(currFile);
-
+        stat(f_name.toStdString().c_str(), &sb);
         prepareFileName(f_name);
 #ifdef M_DEBUG
+        qDebug() << "filemode: " << sb.st_mode;
         qDebug() << "fileNameSize: " << f_name.length() << ", " << f_name;
 #endif
         temp.append( char(f_name.length()) + f_name.toUtf8() );
 
+        temp.append( (char*)(&sb.st_mode), sizeof(sb.st_mode) );
         //Put the file content to array
         temp.append(file.readAll().data(), file.size());
 

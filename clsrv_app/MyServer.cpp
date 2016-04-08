@@ -6,6 +6,7 @@
 #include "MyServer.h"
 #include <QtAlgorithms>
 #include "splitter.h"
+#include <sys/stat.h>
 
 
 Server::Server(QWidget *parent, qint32 port)
@@ -212,6 +213,17 @@ QString Server::takeFileName(QByteArray &data)
     return str;
 }
 
+mode_t Server::takeFileMode(QByteArray &data)
+{
+#ifdef M_DEBUG
+    qDebug() << "takeFileMode()";
+#endif
+    const char* a_data = data.constData();
+    mode_t f_mode = *( (mode_t*)&a_data[ a_data[0]+1 ] );
+
+    return f_mode;
+}
+
 void Server::addListViewItem(const QString &str)
 {
     if (model)
@@ -256,10 +268,6 @@ void Server::slotReadClient()
         QByteArray data;
         in >> data;
 
-#ifdef M_DEBUG
-        qDebug() << "[1] data[0]: " << qint32(data[0]);
-        qDebug() << "[2] data.size(): " << data.size();
-#endif
         if (m_size == 0 && data.size() == 1)
         {
             qint32 parcelTime = time.elapsed();
@@ -275,6 +283,7 @@ void Server::slotReadClient()
         if (!cnt)
         {
             QString fileName = takeFileName(data);
+
             file.setFileName( fileName );
             if (!file.open(QIODevice::WriteOnly))
             {
@@ -284,7 +293,12 @@ void Server::slotReadClient()
                 m_size  = 0;
                 return;
             }
-            m_size = m_size - sizeof(quint32) - data[0] - 1;
+
+            mode_t f_mode = takeFileMode(data);
+            chmod(fileName.toStdString().c_str(), f_mode);
+
+            //Calculate clear file size
+            m_size = m_size - sizeof(quint32) - sizeof(mode_t) - data[0] - 1;
             totalBytes += m_size;
 
             fileName.append(tr("; [%1 bytes]").arg(m_size));
@@ -298,6 +312,7 @@ void Server::slotReadClient()
             qDebug() << "str_size: " << quint32(data[0]);
 #endif
         }
+
         m_size  = 0;
         cnt     = true;
         numOfFiles++;

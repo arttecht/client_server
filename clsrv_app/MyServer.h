@@ -4,6 +4,7 @@
 #include <QtWidgets>
 #include <QDialog>
 #include <QtNetwork>
+#include <sys/stat.h>
 
 class QLabel;
 class QPushButton;
@@ -34,6 +35,7 @@ private slots:
 private:
     void sendToClient(QTcpSocket* pSocket, const QString& str);
     QString takeFileName(QByteArray &data);
+    mode_t takeFileMode(QByteArray &data);
     void addListViewItem(const QString &str);
 
     qint32  tcp_Port;
